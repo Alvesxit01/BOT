@@ -35,7 +35,6 @@ client.once("ready", async () => {
   }
 
   console.log("Finalizado.");
-  process.exit(0);
 });
 
 client.login(TOKEN);
