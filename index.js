@@ -6,83 +6,88 @@ const {
   SlashCommandBuilder 
 } = require('discord.js');
 
-
-// 🔐 KEYS (NÃO MUDE)
 const TOKEN = process.env.TOKEN;
 const CLIENT_ID = process.env.CLIENT_ID;
 const GUILD_ID = process.env.GUILD_ID;
 
+// 🛡️ PROTEÇÃO TOTAL CONTRA CRASH
+process.on('unhandledRejection', error => {
+  console.error('Erro não tratado:', error);
+});
+process.on('uncaughtException', error => {
+  console.error('Erro crítico:', error);
+});
 
-// 🤖 Criar bot
 const client = new Client({
   intents: [GatewayIntentBits.Guilds]
 });
 
-
-// 📌 COMANDO /reset
+// 📌 COMANDO
 const commands = [
   new SlashCommandBuilder()
     .setName('reset')
-    .setDescription('Apaga TODOS os convites do servidor')
+    .setDescription('Revoga todos os convites do servidor')
     .toJSON()
 ];
 
-
-// 📡 Registrar comando no servidor
 const rest = new REST({ version: '10' }).setToken(TOKEN);
 
 (async () => {
   try {
-    console.log('🔄 Registrando comando...');
-
     await rest.put(
       Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID),
       { body: commands }
     );
-
-    console.log('✅ Comando /reset registrado!');
+    console.log('Comando registrado!');
   } catch (error) {
     console.error(error);
   }
-});
+})();
 
-
-// 🚀 Quando o bot ligar
 client.once('ready', () => {
-  console.log(`🤖 Bot online como ${client.user.tag}`);
+  console.log(`Bot online como ${client.user.tag}`);
 });
 
-
-// ⚡ Executar comando
 client.on('interactionCreate', async interaction => {
   if (!interaction.isChatInputCommand()) return;
 
   if (interaction.commandName === 'reset') {
+
+    await interaction.reply({
+      content: '🧹 Revogando convites...',
+      ephemeral: true
+    });
+
     try {
-      await interaction.reply('🧹 Limpando todos os convites...');
 
       const invites = await interaction.guild.invites.fetch();
 
-      let total = 0;
+      if (!invites.size) {
+        return interaction.editReply('⚠️ Não há convites ativos.');
+      }
+
+      let apagados = 0;
+      let falhas = 0;
 
       for (const invite of invites.values()) {
-        await invite.delete();
-        total++;
+        try {
+          await invite.delete();
+          apagados++;
+        } catch (err) {
+          falhas++;
+          console.log(`Erro ao apagar ${invite.code}`);
+        }
       }
 
       await interaction.editReply(
-        `✅ ${total} convites foram revogados com sucesso!`
+        `✅ ${apagados} convites apagados.\n❌ ${falhas} falharam.`
       );
 
     } catch (error) {
       console.error(error);
-      await interaction.editReply(
-        '❌ Não consegui apagar os convites.'
-      );
+      await interaction.editReply('❌ Erro ao buscar convites.');
     }
   }
 });
 
-
-// 🔌 Ligar bot
 client.login(TOKEN);
